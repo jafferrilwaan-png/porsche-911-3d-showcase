@@ -234,18 +234,49 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
             child.position.x = THREE.MathUtils.lerp(child.position.x, targetX, 0.15)
           }
 
-          // ── 2. Body shell vertical lift explosion (clamshell chassis view) ──
-          // Include outer shell panels, grills, paint, glass, and lights. Exclude wheels/steering/brakes.
+          // ── 2. Body shell vertical/horizontal multidirectional exploded view ──
+          // Instead of lifting as a single block, we separate components along different axes:
           const isBodyShell = 
             /body|glass|trim|grills|chrome|carbon|wipers|leds|lights/.test(name) && 
             !/wheel|rim|steering|brake|caliper|disc/.test(name)
             
           if (isBodyShell) {
+            let targetX = initialPos.x
             let targetY = initialPos.y
+            let targetZ = initialPos.z
+
             if (explodedBody) {
-              targetY = initialPos.y + 0.95 // Lift the entire outer shell up by 0.95 units
+              if (name.includes('body')) {
+                // Paint shell goes forward
+                targetZ = initialPos.z + 0.65
+              } else if (name.includes('glass')) {
+                // Windows go up
+                targetY = initialPos.y + 0.75
+              } else if (name.includes('trim') || name.includes('carbon')) {
+                // Trim components slide backward
+                targetZ = initialPos.z - 0.55
+              } else if (name.includes('grills')) {
+                // Grills slide forward
+                targetZ = initialPos.z + 0.45
+              } else if (name.includes('chrome')) {
+                // Chrome rails slide left/right
+                const side = Math.sign(initialPos.x) || 1
+                targetX = initialPos.x + 0.3 * side
+              } else if (name.includes('wipers')) {
+                // Wipers go up
+                targetY = initialPos.y + 0.3
+              } else if (name.includes('lights_red')) {
+                // Taillights go back
+                targetZ = initialPos.z - 0.6
+              } else if (name.includes('lights') || name.includes('leds')) {
+                // Headlights go forward
+                targetZ = initialPos.z + 0.6
+              }
             }
+
+            child.position.x = THREE.MathUtils.lerp(child.position.x, targetX, 0.15)
             child.position.y = THREE.MathUtils.lerp(child.position.y, targetY, 0.15)
+            child.position.z = THREE.MathUtils.lerp(child.position.z, targetZ, 0.15)
           }
         }
       }
@@ -821,35 +852,41 @@ export default function Scene({
         castShadow
       />
 
-      {/* Hyper-realistic Glass Pavilion environment preset (CORS-safe & ultra-fast) */}
+      {/* Realistic Glass Pavilion Ground Projection (CORS-safe, 100% grounded 8K view) */}
       <Environment 
         preset="lobby" 
         background 
-        blur={0.012} 
+        blur={0} 
+        ground={{
+          height: 1.8,
+          radius: 28,
+        }}
       />
 
       {/* 3D Glass Pavilion Showroom */}
       <GlassShowroom color={color} />
 
-      {/* 3D Porsche Model & Mirror Floor */}
-      <Suspense fallback={null}>
-        {/* Float logic only active in overview mode to prevent camera jitter */}
-        <Float 
-          speed={cameraMode === 'overview' ? 0.5 : 0} 
-          rotationIntensity={cameraMode === 'overview' ? 0.05 : 0} 
-          floatIntensity={cameraMode === 'overview' ? 0.08 : 0}
-        >
-          <PorscheModel 
-            color={color} 
-            explodedWheel={explodedWheel}
-            setExplodedWheel={setExplodedWheel}
-            setCameraMode={setCameraMode}
-            explodedBody={explodedBody}
-            setExplodedBody={setExplodedBody}
-          />
-        </Float>
-        <GroundReflection color={CAR_COLORS[color] || CAR_COLORS.gold} />
-      </Suspense>
+      {/* 3D Porsche Model & Mirror Floor (Glide right when card is active to avoid text overlap) */}
+      <group position={[explodedWheel || explodedBody ? 1.3 : 0, 0, 0]}>
+        <Suspense fallback={null}>
+          {/* Float logic only active in overview mode to prevent camera jitter */}
+          <Float 
+            speed={cameraMode === 'overview' ? 0.5 : 0} 
+            rotationIntensity={cameraMode === 'overview' ? 0.05 : 0} 
+            floatIntensity={cameraMode === 'overview' ? 0.08 : 0}
+          >
+            <PorscheModel 
+              color={color} 
+              explodedWheel={explodedWheel}
+              setExplodedWheel={setExplodedWheel}
+              setCameraMode={setCameraMode}
+              explodedBody={explodedBody}
+              setExplodedBody={setExplodedBody}
+            />
+          </Float>
+          <GroundReflection color={CAR_COLORS[color] || CAR_COLORS.gold} />
+        </Suspense>
+      </group>
 
       {/* Particle FX */}
       <Particles />

@@ -1048,14 +1048,17 @@ body {
 /* ── TIRE PERFORMANCE CARD (VisionOS Style) ── */
 .tire-card {
   position: absolute;
-  left: var(--spacing-xl);
+  left: 24px;
   top: 55%;
   transform: translateY(-50%) scale(0.95);
-  width: 390px;
-  padding: var(--spacing-xl);
+  width: 330px;
+  padding: var(--spacing-lg);
   border-radius: var(--radius-xl);
   z-index: 12;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  background: rgba(8, 10, 18, 0.45);
+  backdrop-filter: blur(35px) saturate(190%);
+  -webkit-backdrop-filter: blur(35px) saturate(190%);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   opacity: 0;
   pointer-events: none;
