@@ -758,9 +758,9 @@ export default function Scene({
         castShadow
       />
 
-      {/* Realistic 2K Modern Buildings HDRI (Hyper-realistic environment backdrop) */}
+      {/* Hyper-realistic Glass Pavilion environment preset (CORS-safe & ultra-fast) */}
       <Environment 
-        files="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/modern_buildings_2.hdr" 
+        preset="lobby" 
         background 
         blur={0.012} 
       />
