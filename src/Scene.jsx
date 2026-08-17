@@ -15,10 +15,25 @@ const CAR_COLORS = {
   miami:    '#00a3b5',
 }
 
-// ── Porsche 911 Model Component with Sunglasses Glass (Static Wheels) ───────
-function PorscheModel({ color = 'gold' }) {
+// ── Porsche 911 Model Component with Sunglasses Glass & Interactive Exploded Wheels ───────
+function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, setCameraMode }) {
   const gltf = useGLTF('/model.glb')
   const groupRef = useRef()
+  const initialPositions = useRef(new Map())
+
+  // Store initial positions of all wheel meshes once
+  useEffect(() => {
+    if (!gltf.scene) return
+    gltf.scene.traverse((child) => {
+      if (child.isMesh) {
+        const name = child.name.toLowerCase()
+        const isPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
+        if (isPart && !initialPositions.current.has(child.uuid)) {
+          initialPositions.current.set(child.uuid, child.position.clone())
+        }
+      }
+    })
+  }, [gltf.scene])
 
   // Material and mesh binding
   useEffect(() => {
@@ -181,8 +196,76 @@ function PorscheModel({ color = 'gold' }) {
     })
   }, [gltf.scene, color])
 
+  // 60fps Exploded parts interpolation
+  useFrame(() => {
+    if (!gltf.scene) return
+    gltf.scene.traverse((child) => {
+      if (child.isMesh) {
+        const name = child.name.toLowerCase()
+        const isPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
+        if (isPart) {
+          const initialPos = initialPositions.current.get(child.uuid)
+          if (initialPos) {
+            // Determine corner
+            let corner = 'fl'
+            if (name.includes('_fl')) corner = 'fl'
+            else if (name.includes('_fr')) corner = 'fr'
+            else if (name.includes('_rl')) corner = 'rl'
+            else if (name.includes('_rr')) corner = 'rr'
+            else {
+              // fallback to initial coordinate signs
+              if (initialPos.z > 0.1) {
+                corner = initialPos.x > 0 ? 'fl' : 'fr'
+              } else {
+                corner = initialPos.x > 0 ? 'rl' : 'rr'
+              }
+            }
+
+            let targetOffset = 0
+            if (explodedWheel === corner) {
+              if (name.includes('tire')) {
+                targetOffset = 0.62 // Tire slides furthest
+              } else if (name.includes('rim') || name.includes('wheel')) {
+                targetOffset = 0.32 // Alloy wheel sits in center-outward
+              } else if (name.includes('brake') || name.includes('caliper')) {
+                targetOffset = 0.12 // Rotor moves slightly to show suspension
+              }
+            }
+
+            // Direction multiplier based on side of car (outward along local X)
+            const dir = (corner === 'fl' || corner === 'rl') ? 1 : -1
+            const targetX = initialPos.x + targetOffset * dir
+            child.position.x = THREE.MathUtils.lerp(child.position.x, targetX, 0.15)
+          }
+        }
+      }
+    })
+  })
+
   return (
-    <group ref={groupRef} position={[0, -0.62, 0]} scale={1.42}>
+    <group 
+      ref={groupRef} 
+      position={[0, -0.62, 0]} 
+      scale={1.42}
+      onClick={(e) => {
+        e.stopPropagation()
+        const name = e.object.name.toLowerCase()
+        const isPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
+        if (isPart) {
+          // Classify clicked wheel's corner
+          const wp = new THREE.Vector3()
+          e.object.getWorldPosition(wp)
+          let corner = 'fl'
+          if (wp.z > 0.15) {
+            corner = wp.x > 0 ? 'fl' : 'fr'
+          } else if (wp.z < -0.15) {
+            corner = wp.x > 0 ? 'rl' : 'rr'
+          }
+          setExplodedWheel(prev => prev === corner ? null : corner)
+          setCameraMode('wheel')
+        }
+      }}
+    >
       <primitive object={gltf.scene} />
     </group>
   )
@@ -434,9 +517,15 @@ const TOURS = {
     { pos: [1.0,  0.6,  -4.0], look: [0, 0.3, -0.3],  orbit: false }, // Exhaust detail
   ]
 }
-
 // ── Camera Controller (Cinematic Intro & Auto-Rotate Idle Timers) ────────────
-function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteraction }) {
+const WHEEL_VIEWS = {
+  fl: { pos: [ 2.6, 0.5,  2.4],  look: [ 0.9, -0.15,  0.9] },
+  fr: { pos: [ 2.6, 0.5, -2.4],  look: [ 0.9, -0.15, -0.9] },
+  rr: { pos: [-2.6, 0.5, -2.4],  look: [-0.9, -0.15, -0.9] },
+  rl: { pos: [-2.6, 0.5,  2.4],  look: [-0.9, -0.15,  0.9] },
+}
+
+function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteraction, explodedWheel = null }) {
   const { camera, controls } = useThree()
   
   // Guided tour and transition states
@@ -477,6 +566,21 @@ function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteract
   }, [cameraMode])
 
   useFrame((_, delta) => {
+    // 0. Exploded Wheel View Camera Focus Lock
+    if (explodedWheel && WHEEL_VIEWS[explodedWheel]) {
+      const view = WHEEL_VIEWS[explodedWheel]
+      const targetP = new THREE.Vector3(...view.pos)
+      const targetL = new THREE.Vector3(...view.look)
+      camera.position.lerp(targetP, delta * 3.5)
+      if (controls) {
+        controls.target.lerp(targetL, delta * 3.5)
+        controls.update()
+      } else {
+        camera.lookAt(targetL)
+      }
+      return
+    }
+
     // 1. Cinematic Intro glide down
     if (introActive) {
       const overviewPos = new THREE.Vector3(5.5, 1.8, 7.5)
@@ -602,7 +706,10 @@ function PostFX() {
 // ── MAIN SCENE COMPONENT ─────────────────────────────────────────────────────
 export default function Scene({ 
   color = 'gold', 
-  cameraMode = 'overview'
+  cameraMode = 'overview',
+  setCameraMode,
+  explodedWheel = null,
+  setExplodedWheel
 }) {
   const [isAutoRotating, setIsAutoRotating] = useState(true)
   const lastInteraction = useRef(Date.now())
@@ -651,11 +758,11 @@ export default function Scene({
         castShadow
       />
 
-      {/* Realistic Sunset HDRI Panorama (8k environment source backdrop) */}
+      {/* Realistic 2K Modern Buildings HDRI (Hyper-realistic environment backdrop) */}
       <Environment 
-        files="https://threejs.org/examples/textures/equirectangular/venice_sunset_1k.hdr" 
+        files="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/modern_buildings_2.hdr" 
         background 
-        blur={0.015} 
+        blur={0.012} 
       />
 
       {/* 3D Glass Pavilion Showroom */}
@@ -669,7 +776,12 @@ export default function Scene({
           rotationIntensity={cameraMode === 'overview' ? 0.05 : 0} 
           floatIntensity={cameraMode === 'overview' ? 0.08 : 0}
         >
-          <PorscheModel color={color} />
+          <PorscheModel 
+            color={color} 
+            explodedWheel={explodedWheel}
+            setExplodedWheel={setExplodedWheel}
+            setCameraMode={setCameraMode}
+          />
         </Float>
         <GroundReflection color={CAR_COLORS[color] || CAR_COLORS.gold} />
       </Suspense>
@@ -683,6 +795,7 @@ export default function Scene({
         isAutoRotating={isAutoRotating}
         setIsAutoRotating={setIsAutoRotating}
         lastInteraction={lastInteraction}
+        explodedWheel={explodedWheel}
       />
       <OrbitControls
         enablePan={cameraMode === 'overview'}
@@ -704,3 +817,5 @@ export default function Scene({
     </Canvas>
   )
 }
+
+

@@ -1045,6 +1045,125 @@ body {
   pointer-events: none;
 }
 
+/* ── TIRE PERFORMANCE CARD (VisionOS Style) ── */
+.tire-card {
+  position: absolute;
+  left: var(--spacing-xl);
+  top: 55%;
+  transform: translateY(-50%) scale(0.95);
+  width: 390px;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-xl);
+  z-index: 12;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tire-card.active {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateY(-50%) scale(1);
+}
+
+.tire-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: var(--spacing-md);
+}
+
+.tire-card-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.tire-card-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.tire-card-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: scale(1.05);
+}
+
+.tire-spec-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.tire-spec-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+}
+
+.tire-spec-lbl {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.tire-spec-val {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tire-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.tire-card-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 35px var(--accent-dynamic-glow);
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Hide animation classes for main panels when wheel is exploded */
+.hide-panel {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-50%) translateX(-40px) !important;
+}
+
+.hide-panel-right {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-50%) translateX(40px) !important;
+}
+
+
 /* ══════════════════════════════════════════════════════════════
    MOBILE RESPONSIVE — Full Breakpoint System
    ══════════════════════════════════════════════════════════════ */

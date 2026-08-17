@@ -136,6 +136,7 @@ function AudioIcon({ playing }) {
 export default function App() {
   const [carColor, setCarColor] = useState('gold')
   const [cameraMode, setCameraMode] = useState('overview')
+  const [explodedWheel, setExplodedWheel] = useState(null)
   const [hoveredColor, setHoveredColor] = useState(null)
   const [activeModal, setActiveModal] = useState(null) // 'discover' | 'specs'
   
@@ -183,6 +184,9 @@ export default function App() {
         <Scene 
           color={carColor} 
           cameraMode={cameraMode}
+          setCameraMode={setCameraMode}
+          explodedWheel={explodedWheel}
+          setExplodedWheel={setExplodedWheel}
         />
       </div>
 
@@ -196,7 +200,7 @@ export default function App() {
 
         {/* ── NAVBAR WITH PORSCHE HORSE EMBLEM & CAMERA PRESETS ── */}
         <nav className="navbar animate-up">
-          <div className="navbar-logo" onClick={() => setCameraMode('overview')}>
+          <div className="navbar-logo" onClick={() => { setCameraMode('overview'); setExplodedWheel(null); }}>
             <PorscheHorseLogo />
             <span className="navbar-brand" style={{ marginLeft: '10px' }}>Porsche <span>911</span></span>
           </div>
@@ -205,13 +209,13 @@ export default function App() {
           <div className="navbar-nav prism-nav">
             <button 
               className={`nav-btn ${cameraMode === 'overview' ? 'active' : ''}`} 
-              onClick={() => setCameraMode('overview')}
+              onClick={() => { setCameraMode('overview'); setExplodedWheel(null); }}
             >
               Overview
             </button>
             <button 
               className={`nav-btn ${cameraMode === 'interior' ? 'active' : ''}`} 
-              onClick={() => setCameraMode('interior')}
+              onClick={() => { setCameraMode('interior'); setExplodedWheel(null); }}
             >
               Interior
             </button>
@@ -223,13 +227,11 @@ export default function App() {
             </button>
             <button 
               className={`nav-btn ${cameraMode === 'rear' ? 'active' : ''}`} 
-              onClick={() => setCameraMode('rear')}
+              onClick={() => { setCameraMode('rear'); setExplodedWheel(null); }}
             >
               Rear
             </button>
           </div>
-
-
 
           <button
             className="btn-primary"
@@ -241,7 +243,7 @@ export default function App() {
         </nav>
 
         {/* ── HERO SECTION ── */}
-        <div className="hero-section animate-left" style={{ pointerEvents: 'all' }}>
+        <div className={`hero-section animate-left${explodedWheel ? ' hide-panel' : ''}`} style={{ pointerEvents: 'all' }}>
           <p className="hero-eyebrow">Carrera S · 2024 Edition</p>
           <h1 className="hero-title">
             The Art of<br />
@@ -260,8 +262,46 @@ export default function App() {
           </div>
         </div>
 
+        {/* ── TIRE PERFORMANCE CARD (Apple VisionOS Glassmorphism UI) ── */}
+        <div className={`tire-card glass-card ${explodedWheel ? 'active' : ''}`} style={{ pointerEvents: 'all' }}>
+          <div className="tire-card-glow" />
+          <div className="tire-card-header">
+            <span className="tire-card-title">Tire Performance</span>
+            <button className="tire-card-close" onClick={() => setExplodedWheel(null)}>✕</button>
+          </div>
+          <div className="tire-spec-grid">
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Alloy Rim</span>
+              <span className="tire-spec-val">20" / 21" Carrera S</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Compound</span>
+              <span className="tire-spec-val">Cup 2 Dual-Compound</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Front Tire</span>
+              <span className="tire-spec-val">245/35 ZR 20</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Rear Tire</span>
+              <span className="tire-spec-val">305/30 ZR 21</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Pressure</span>
+              <span className="tire-spec-val">2.2 Bar / 32 PSI</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Optimal Temp</span>
+              <span className="tire-spec-val">24°C / 75°F</span>
+            </div>
+          </div>
+          <p className="tire-desc">
+            Featuring <strong style={{ color: 'var(--accent-dynamic)' }}>Michelin Pilot Sport Cup 2</strong> motorsport tires, optimized specifically for track stability and rapid thermal dispersion during extreme cornering.
+          </p>
+        </div>
+
         {/* ── SPECS PANEL (RIGHT SIDE) ── */}
-        <div className="specs-panel glass-card animate-right" style={{ pointerEvents: 'all' }}>
+        <div className={`specs-panel glass-card animate-right${explodedWheel ? ' hide-panel-right' : ''}`} style={{ pointerEvents: 'all' }}>
           <p className="specs-title">Technical Specs</p>
           {SPECS.map(spec => (
             <div key={spec.label} className="spec-item">
