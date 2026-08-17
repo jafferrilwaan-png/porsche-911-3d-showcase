@@ -1165,6 +1165,49 @@ body {
   pointer-events: none !important;
   transform: translateY(-50%) translateX(40px) !important;
 }
+/* ── REAR CAMERA HUD CONTROLS ── */
+.rear-controls-hud {
+  position: absolute;
+  bottom: 165px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  pointer-events: all;
+  z-index: 15;
+}
+
+.hud-btn {
+  background: rgba(10, 12, 22, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  padding: 10px 20px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.hud-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.hud-btn.active {
+  background: var(--accent-dynamic);
+  border-color: var(--accent-dynamic);
+  box-shadow: 0 0 15px var(--accent-dynamic-glow);
+  color: #ffffff;
+}
+
 
 
 /* ══════════════════════════════════════════════════════════════

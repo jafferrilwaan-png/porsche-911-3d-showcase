@@ -16,10 +16,22 @@ const CAR_COLORS = {
 }
 
 // ── Porsche 911 Model Component with Sunglasses Glass & Interactive Exploded Configuration ───────
-function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, setCameraMode, explodedBody = false, setExplodedBody }) {
+function PorscheModel({ 
+  color = 'gold', 
+  explodedWheel = null, 
+  setExplodedWheel, 
+  setCameraMode, 
+  explodedBody = false, 
+  setExplodedBody,
+  engineOpen = false,
+  setEngineOpen,
+  nitrousActive = false,
+  setNitrousActive
+}) {
   const gltf = useGLTF('/model.glb')
   const groupRef = useRef()
   const initialPositions = useRef(new Map())
+  const nitrousGroupRef = useRef()
 
   // Store initial positions of ALL meshes once on load
   useEffect(() => {
@@ -192,9 +204,21 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
     })
   }, [gltf.scene, color])
 
-  // 60fps Exploded parts interpolation
-  useFrame(() => {
+  // 60fps Exploded parts and exhaust flicker interpolations
+  useFrame(({ clock }) => {
     if (!gltf.scene) return
+    const t = clock.getElapsedTime()
+
+    // 1. Nitrous flicker vibration
+    if (nitrousGroupRef.current) {
+      const s = 1.0 + Math.sin(t * 50) * 0.18
+      nitrousGroupRef.current.scale.set(
+        1.0 + Math.cos(t * 35) * 0.05,
+        1.0 + Math.cos(t * 35) * 0.05,
+        s
+      )
+    }
+
     gltf.scene.traverse((child) => {
       if (child.isMesh) {
         const name = child.name.toLowerCase()
@@ -235,10 +259,10 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
           }
 
           // ── 2. Body shell vertical/horizontal multidirectional exploded view ──
-          // Instead of lifting as a single block, we separate components along different axes:
+          // Include outer shell panels, glass, chrome rails. Exclude grills/wheels/steering/brakes.
           const isBodyShell = 
-            /body|glass|trim|grills|chrome|carbon|wipers|leds|lights/.test(name) && 
-            !/wheel|rim|steering|brake|caliper|disc/.test(name)
+            /body|glass|trim|chrome|carbon|wipers|leds|lights/.test(name) && 
+            !/wheel|rim|steering|brake|caliper|disc|grill/.test(name)
             
           if (isBodyShell) {
             let targetX = initialPos.x
@@ -247,29 +271,19 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
 
             if (explodedBody) {
               if (name.includes('body')) {
-                // Paint shell goes forward
                 targetZ = initialPos.z + 0.65
               } else if (name.includes('glass')) {
-                // Windows go up
                 targetY = initialPos.y + 0.75
               } else if (name.includes('trim') || name.includes('carbon')) {
-                // Trim components slide backward
                 targetZ = initialPos.z - 0.55
-              } else if (name.includes('grills')) {
-                // Grills slide forward
-                targetZ = initialPos.z + 0.45
               } else if (name.includes('chrome')) {
-                // Chrome rails slide left/right
                 const side = Math.sign(initialPos.x) || 1
                 targetX = initialPos.x + 0.3 * side
               } else if (name.includes('wipers')) {
-                // Wipers go up
                 targetY = initialPos.y + 0.3
               } else if (name.includes('lights_red')) {
-                // Taillights go back
                 targetZ = initialPos.z - 0.6
               } else if (name.includes('lights') || name.includes('leds')) {
-                // Headlights go forward
                 targetZ = initialPos.z + 0.6
               }
             }
@@ -277,6 +291,29 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
             child.position.x = THREE.MathUtils.lerp(child.position.x, targetX, 0.15)
             child.position.y = THREE.MathUtils.lerp(child.position.y, targetY, 0.15)
             child.position.z = THREE.MathUtils.lerp(child.position.z, targetZ, 0.15)
+          }
+
+          // ── 3. Engine cover / rear lid hatch opening ──
+          if (name.includes('grill')) {
+            let targetX = initialPos.x
+            let targetY = initialPos.y
+            let targetZ = initialPos.z
+            let targetRXRot = 0
+
+            if (explodedBody) {
+              // Slides back as part of full body explosion
+              targetZ = initialPos.z - 0.55
+            } else if (engineOpen) {
+              // Rotates upward like a hatch lid
+              targetY = initialPos.y + 0.14
+              targetZ = initialPos.z - 0.08
+              targetRXRot = -0.38
+            }
+
+            child.position.x = THREE.MathUtils.lerp(child.position.x, targetX, 0.15)
+            child.position.y = THREE.MathUtils.lerp(child.position.y, targetY, 0.15)
+            child.position.z = THREE.MathUtils.lerp(child.position.z, targetZ, 0.15)
+            child.rotation.x = THREE.MathUtils.lerp(child.rotation.x, targetRXRot, 0.15)
           }
         }
       }
@@ -293,25 +330,38 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
         const name = e.object.name.toLowerCase()
         const isWheelPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
         
+        // Find click coordinate in world space to detect hot zones
+        const wp = new THREE.Vector3()
+        e.object.getWorldPosition(wp)
+
+        // ── A. Tapping exhaust tailpipe zone (Nitrous NOS Activation) ──
+        if (wp.z < -1.35 && wp.y < -0.3) {
+          setNitrousActive(prev => !prev)
+          return
+        }
+
+        // ── B. Tapping engine cover deck (rear lid hatch opening) ──
+        if (wp.z < -1.1 && wp.y >= -0.3 && !isWheelPart) {
+          setEngineOpen(prev => !prev)
+          return
+        }
+        
+        // ── C. Wheel assembly click ──
         if (isWheelPart) {
-          // Classify clicked wheel's corner
-          const wp = new THREE.Vector3()
-          e.object.getWorldPosition(wp)
           let corner = 'fl'
           if (wp.z > 0.15) {
             corner = wp.x > 0 ? 'fl' : 'fr'
           } else if (wp.z < -0.15) {
             corner = wp.x > 0 ? 'rl' : 'rr'
           }
-          // Reset other configuration states
           setExplodedBody(false)
           setExplodedWheel(prev => prev === corner ? null : corner)
           setCameraMode('wheel')
-        } else {
-          // Body panels click
-          const isBodyShell = /body|glass|trim|grills|chrome|carbon|wipers|leds|lights/.test(name)
+        } 
+        // ── D. Body panels click ──
+        else {
+          const isBodyShell = /body|glass|trim|chrome|carbon|wipers|leds|lights|grill/.test(name)
           if (isBodyShell) {
-            // Reset other configuration states
             setExplodedWheel(null)
             setExplodedBody(prev => !prev)
             setCameraMode('overview')
@@ -320,6 +370,51 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
       }}
     >
       <primitive object={gltf.scene} />
+
+      {/* 💥 Nitrous NOS Blue Thrust Flames (Flickers at exhaust pipes) */}
+      {nitrousActive && (
+        <group ref={nitrousGroupRef}>
+          {/* Left exhaust cone flame */}
+          <mesh position={[-0.14, -0.34, -1.82]} rotation={[Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[0.07, 0.7, 16]} />
+            <meshBasicMaterial 
+              color="#00eeff" 
+              transparent 
+              opacity={0.8} 
+              blending={THREE.AdditiveBlending} 
+            />
+          </mesh>
+          <mesh position={[-0.14, -0.34, -1.82]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.015, 0.04, 0.8, 16]} />
+            <meshBasicMaterial 
+              color="#ffffff" 
+              transparent 
+              opacity={0.9} 
+              blending={THREE.AdditiveBlending} 
+            />
+          </mesh>
+
+          {/* Right exhaust cone flame */}
+          <mesh position={[0.14, -0.34, -1.82]} rotation={[Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[0.07, 0.7, 16]} />
+            <meshBasicMaterial 
+              color="#00eeff" 
+              transparent 
+              opacity={0.8} 
+              blending={THREE.AdditiveBlending} 
+            />
+          </mesh>
+          <mesh position={[0.14, -0.34, -1.82]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.015, 0.04, 0.8, 16]} />
+            <meshBasicMaterial 
+              color="#ffffff" 
+              transparent 
+              opacity={0.9} 
+              blending={THREE.AdditiveBlending} 
+            />
+          </mesh>
+        </group>
+      )}
     </group>
   )
 }
@@ -597,14 +692,23 @@ const TOURS = {
     { pos: [1.0,  0.6,  -4.0], look: [0, 0.3, -0.3],  orbit: false }, // Exhaust detail
   ]
 }
+
 // ── Camera Controller (Cinematic Intro & Auto-Rotate Idle Timers) ────────────
 const WHEEL_VIEWS = {
-  fl: { pos: [ 2.6, 0.5,  2.4],  look: [ 0.9, -0.15,  0.9] },
-  fr: { pos: [ 2.6, 0.5, -2.4],  look: [ 0.9, -0.15, -0.9] },
-  rr: { pos: [-2.6, 0.5, -2.4],  look: [-0.9, -0.15, -0.9] },
-  rl: { pos: [-2.6, 0.5,  2.4],  look: [-0.9, -0.15,  0.9] },
+  fl: { pos: [ 1.8, -0.22,  1.8],  look: [ 0.85, -0.62,  0.82] },
+  fr: { pos: [ 1.8, -0.22, -1.8],  look: [ 0.85, -0.62, -0.82] },
+  rr: { pos: [-1.8, -0.22, -1.8],  look: [-0.85, -0.62, -0.82] },
+  rl: { pos: [-1.8, -0.22,  1.8],  look: [-0.85, -0.62,  0.82] },
 }
-function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteraction, explodedWheel = null, explodedBody = false }) {
+
+function CameraRig({ 
+  cameraMode, 
+  isAutoRotating, 
+  setIsAutoRotating, 
+  lastInteraction, 
+  explodedWheel = null, 
+  explodedBody = false 
+}) {
   const { camera, controls } = useThree()
   
   // Guided tour and transition states
@@ -615,6 +719,11 @@ function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteract
   // Target values to lerp towards
   const targetPos = useRef(new THREE.Vector3(5.5, 1.8, 7.5))
   const targetLook = useRef(new THREE.Vector3(0, 0, 0))
+
+  // Seamless rotation angle tracking
+  const wasAutoRotating = useRef(isAutoRotating)
+  const angleOffset = useRef(0)
+  const startTimer = useRef(0)
 
   // Cinematic Intro State (Starting camera angle high above)
   const [introActive, setIntroActive] = useState(true)
@@ -644,37 +753,10 @@ function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteract
     }
   }, [cameraMode])
 
-  useFrame((_, delta) => {
-    // 0. Exploded Body View Camera Lock (Elevated angle to look down into chassis)
-    if (explodedBody) {
-      const targetP = new THREE.Vector3(3.2, 2.5, 3.2)
-      const targetL = new THREE.Vector3(0, 0.2, 0.2)
-      camera.position.lerp(targetP, delta * 3.5)
-      if (controls) {
-        controls.target.lerp(targetL, delta * 3.5)
-        controls.update()
-      } else {
-        camera.lookAt(targetL)
-      }
-      return
-    }
+  useFrame(({ clock }, delta) => {
+    const carShiftX = (explodedWheel || explodedBody) ? 1.35 : 0
 
-    // 0.5. Exploded Wheel View Camera Focus Lock
-    if (explodedWheel && WHEEL_VIEWS[explodedWheel]) {
-      const view = WHEEL_VIEWS[explodedWheel]
-      const targetP = new THREE.Vector3(...view.pos)
-      const targetL = new THREE.Vector3(...view.look)
-      camera.position.lerp(targetP, delta * 3.5)
-      if (controls) {
-        controls.target.lerp(targetL, delta * 3.5)
-        controls.update()
-      } else {
-        camera.lookAt(targetL)
-      }
-      return
-    }
-
-    // 1. Cinematic Intro glide down
+    // 0. Cinematic Intro glide down
     if (introActive) {
       const overviewPos = new THREE.Vector3(5.5, 1.8, 7.5)
       camera.position.lerp(overviewPos, delta * 1.5)
@@ -693,74 +775,114 @@ function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteract
       return
     }
 
-    // 2. Automated camera glide transition (initial slide to step 0)
+    // 1. Automated camera glide transition (initial slide to target/step)
     if (transitioning) {
-      camera.position.lerp(targetPos.current, delta * 3.5)
+      const targetP = new THREE.Vector3().copy(targetPos.current)
+      const targetL = new THREE.Vector3().copy(targetLook.current)
+      
+      // Shift target coordinates based on active card X-offset
+      targetP.x += carShiftX
+      targetL.x += carShiftX
+
+      camera.position.lerp(targetP, delta * 3.5)
       if (controls) {
-        controls.target.lerp(targetLook.current, delta * 3.5)
+        controls.target.lerp(targetL, delta * 3.5)
         controls.update()
       } else {
-        camera.lookAt(targetLook.current)
+        camera.lookAt(targetL)
       }
 
-      if (camera.position.distanceTo(targetPos.current) < 0.05) {
+      if (camera.position.distanceTo(targetP) < 0.08) {
         setTransitioning(false)
         setIsAutoRotating(true) // Re-enable auto-rotate upon arrival
       }
       return
     }
 
-    // 3. Resume auto-rotate if idle for 2.5 seconds
+    // 2. Resume auto-rotate if idle for 2.5 seconds
     if (!isAutoRotating && Date.now() - lastInteraction.current > 2500) {
       setIsAutoRotating(true)
     }
 
-    // 4. Guided Tour Timeline Loop (active when isAutoRotating is true)
+    // 3. Active configurations camera locking (Wheel or Body shell)
+    let configTargetL = null
+    let configTargetP = null
+
+    if (explodedBody) {
+      configTargetL = new THREE.Vector3(carShiftX, 0.2, 0.2)
+      configTargetP = new THREE.Vector3(3.2 + carShiftX, 2.5, 3.2)
+    } else if (explodedWheel && WHEEL_VIEWS[explodedWheel]) {
+      const view = WHEEL_VIEWS[explodedWheel]
+      configTargetL = new THREE.Vector3(view.look[0] + carShiftX, view.look[1], view.look[2])
+      configTargetP = new THREE.Vector3(view.pos[0] + carShiftX, view.pos[1], view.pos[2])
+    }
+
+    // 4. Guided Tour / Auto-orbit rotation behavior
     if (isAutoRotating) {
-      const tourList = TOURS[cameraMode] || TOURS.overview
-      const currentStep = tourList[stepIndex] || tourList[0]
+      // Determine the active look and position coordinates
+      let currentL = new THREE.Vector3()
+      let currentP = new THREE.Vector3()
 
-      const basePos = new THREE.Vector3(...currentStep.pos)
-      const baseLook = new THREE.Vector3(...currentStep.look)
-
-      if (currentStep.orbit) {
-        // ── Overview only: slow 360° orbital sweep around car ──
-        const time = Date.now() * 0.00018
-        const r = basePos.distanceTo(new THREE.Vector3(0, 0.2, 0))
-        const startAngle = Math.atan2(basePos.z, basePos.x)
-        const angle = startAngle + time
-        const orbitPos = new THREE.Vector3(
-          Math.cos(angle) * r,
-          basePos.y,
-          Math.sin(angle) * r
-        )
-        camera.position.lerp(orbitPos, delta * 1.2)
-        if (controls) {
-          controls.target.lerp(baseLook, delta * 1.2)
-          controls.update()
-        } else {
-          camera.lookAt(baseLook)
-        }
+      if (configTargetL && configTargetP) {
+        currentL.copy(configTargetL)
+        currentP.copy(configTargetP)
       } else {
-        // ── Interior / Wheel / Rear: cinematic slow drift to each keyframe ──
-        // No orbit — just smoothly lerp to the exact keyframe position
-        camera.position.lerp(basePos, delta * 1.0)
-        if (controls) {
-          controls.target.lerp(baseLook, delta * 1.0)
-          controls.update()
-        } else {
-          camera.lookAt(baseLook)
-        }
+        const tourList = TOURS[cameraMode] || TOURS.overview
+        const step = tourList[stepIndex] || tourList[0]
+        currentL.set(step.look[0] + carShiftX, step.look[1], step.look[2])
+        currentP.set(step.pos[0] + carShiftX, step.pos[1], step.pos[2])
       }
 
-      // Step transition timer
-      if (tourList.length > 1) {
-        timeInStep.current += delta
-        // Overview steps hold longer; close-ups cycle every 3.5 s
-        const holdTime = currentStep.orbit ? 8.0 : 3.5
-        if (timeInStep.current >= holdTime) {
-          timeInStep.current = 0
-          setStepIndex((prev) => (prev + 1) % tourList.length)
+      // Initialize seamless rotation angle offset upon entering autoRotate
+      if (!wasAutoRotating.current) {
+        const dx = camera.position.x - currentL.x
+        const dz = camera.position.z - currentL.z
+        angleOffset.current = Math.atan2(dz, dx)
+        startTimer.current = clock.getElapsedTime()
+        wasAutoRotating.current = true
+      }
+
+      // Calculate smooth circular orbit rotation around center target
+      const elapsed = clock.getElapsedTime() - startTimer.current
+      const angle = angleOffset.current + elapsed * 0.12 // 0.12 radians/second slow orbit
+      const r = currentP.distanceTo(currentL)
+      
+      const orbitPos = new THREE.Vector3(
+        currentL.x + Math.cos(angle) * r,
+        currentP.y, // maintain height
+        currentL.z + Math.sin(angle) * r
+      )
+
+      camera.position.lerp(orbitPos, delta * 2.0)
+      if (controls) {
+        controls.target.lerp(currentL, delta * 2.0)
+        controls.update()
+      } else {
+        camera.lookAt(currentL)
+      }
+
+      // Tour steps cycle timer (only active if no configuration is exploded)
+      if (!explodedWheel && !explodedBody) {
+        const tourList = TOURS[cameraMode] || TOURS.overview
+        if (tourList.length > 1) {
+          timeInStep.current += delta
+          const holdTime = cameraMode === 'overview' ? 8.0 : 3.5
+          if (timeInStep.current >= holdTime) {
+            timeInStep.current = 0
+            setStepIndex((prev) => (prev + 1) % tourList.length)
+            setTransitioning(true) // trigger smooth glide to next step
+          }
+        }
+      }
+    } else {
+      // User is manually interacting; record wasAutoRotating as false
+      wasAutoRotating.current = false
+
+      // If configuration is active, smoothly slide/hold target focal point
+      if (configTargetL && configTargetP) {
+        if (controls) {
+          controls.target.lerp(configTargetL, delta * 2.0)
+          controls.update()
         }
       }
     }
@@ -803,7 +925,11 @@ export default function Scene({
   explodedWheel = null,
   setExplodedWheel,
   explodedBody = false,
-  setExplodedBody
+  setExplodedBody,
+  engineOpen = false,
+  setEngineOpen,
+  nitrousActive = false,
+  setNitrousActive
 }) {
   const [isAutoRotating, setIsAutoRotating] = useState(true)
   const lastInteraction = useRef(Date.now())
@@ -882,6 +1008,10 @@ export default function Scene({
               setCameraMode={setCameraMode}
               explodedBody={explodedBody}
               setExplodedBody={setExplodedBody}
+              engineOpen={engineOpen}
+              setEngineOpen={setEngineOpen}
+              nitrousActive={nitrousActive}
+              setNitrousActive={setNitrousActive}
             />
           </Float>
           <GroundReflection color={CAR_COLORS[color] || CAR_COLORS.gold} />

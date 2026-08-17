@@ -138,8 +138,18 @@ export default function App() {
   const [cameraMode, setCameraMode] = useState('overview')
   const [explodedWheel, setExplodedWheel] = useState(null)
   const [explodedBody, setExplodedBody] = useState(false)
+  const [nitrousActive, setNitrousActive] = useState(false)
+  const [engineOpen, setEngineOpen] = useState(false)
   const [hoveredColor, setHoveredColor] = useState(null)
   const [activeModal, setActiveModal] = useState(null) // 'discover' | 'specs'
+
+  const handleCameraModeChange = (mode) => {
+    setCameraMode(mode)
+    setExplodedWheel(null)
+    setExplodedBody(false)
+    setNitrousActive(false)
+    setEngineOpen(mode === 'rear') // auto-open hatch in rear mode
+  }
   
   const [loadProgress, setLoadProgress] = useState(0)
   const [loaded, setLoaded] = useState(false)
@@ -190,6 +200,10 @@ export default function App() {
           setExplodedWheel={setExplodedWheel}
           explodedBody={explodedBody}
           setExplodedBody={setExplodedBody}
+          engineOpen={engineOpen}
+          setEngineOpen={setEngineOpen}
+          nitrousActive={nitrousActive}
+          setNitrousActive={setNitrousActive}
         />
       </div>
 
@@ -203,7 +217,7 @@ export default function App() {
 
         {/* ── NAVBAR WITH PORSCHE HORSE EMBLEM & CAMERA PRESETS ── */}
         <nav className="navbar animate-up">
-          <div className="navbar-logo" onClick={() => { setCameraMode('overview'); setExplodedWheel(null); setExplodedBody(false); }}>
+          <div className="navbar-logo" onClick={() => handleCameraModeChange('overview')}>
             <PorscheHorseLogo />
             <span className="navbar-brand" style={{ marginLeft: '10px' }}>Porsche <span>911</span></span>
           </div>
@@ -212,25 +226,25 @@ export default function App() {
           <div className="navbar-nav prism-nav">
             <button 
               className={`nav-btn ${cameraMode === 'overview' ? 'active' : ''}`} 
-              onClick={() => { setCameraMode('overview'); setExplodedWheel(null); setExplodedBody(false); }}
+              onClick={() => handleCameraModeChange('overview')}
             >
               Overview
             </button>
             <button 
               className={`nav-btn ${cameraMode === 'interior' ? 'active' : ''}`} 
-              onClick={() => { setCameraMode('interior'); setExplodedWheel(null); setExplodedBody(false); }}
+              onClick={() => handleCameraModeChange('interior')}
             >
               Interior
             </button>
             <button 
               className={`nav-btn ${cameraMode === 'wheel' ? 'active' : ''}`} 
-              onClick={() => { setCameraMode('wheel'); setExplodedBody(false); }}
+              onClick={() => handleCameraModeChange('wheel')}
             >
               Wheel & Tire
             </button>
             <button 
               className={`nav-btn ${cameraMode === 'rear' ? 'active' : ''}`} 
-              onClick={() => { setCameraMode('rear'); setExplodedWheel(null); setExplodedBody(false); }}
+              onClick={() => handleCameraModeChange('rear')}
             >
               Rear
             </button>
@@ -354,6 +368,26 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {/* ── REAR CAMERA HUD CONTROLS (Engine & Nitrous NOS Toggles) ── */}
+        {cameraMode === 'rear' && (
+          <div className="rear-controls-hud animate-up" style={{ pointerEvents: 'all' }}>
+            <button 
+              className={`hud-btn ${engineOpen ? 'active' : ''}`}
+              onClick={() => setEngineOpen(prev => !prev)}
+            >
+              <span style={{ fontSize: '14px' }}>🔧</span> 
+              {engineOpen ? 'Close Engine Lid' : 'Showcase Engine'}
+            </button>
+            <button 
+              className={`hud-btn ${nitrousActive ? 'active' : ''}`}
+              onClick={() => setNitrousActive(prev => !prev)}
+            >
+              <span style={{ fontSize: '14px' }}>🔥</span> 
+              {nitrousActive ? 'Deactivate NOS' : 'Activate Nitrous'}
+            </button>
+          </div>
+        )}
 
         {/* ── COLOR PICKER BAR (BOTTOM CENTER) ── */}
         <div className="color-picker-container" style={{ pointerEvents: 'all' }}>
