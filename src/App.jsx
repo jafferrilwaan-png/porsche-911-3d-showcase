@@ -251,7 +251,7 @@ export default function App() {
             <span style={{ color: 'var(--accent-gold)', fontWeight: 600 }}>Engineered to perfection.</span> A 3.0L flat-six twin-turbo masterpiece delivering 450 hp with iconic rear-engine balance. Pure driving emotion.
           </p>
           <div className="btn-group">
-            <button className="btn-primary btn-gold" onClick={() => setActiveModal('discover')}>
+            <button className="btn-primary" onClick={() => setActiveModal('discover')}>
               Explore Heritage
             </button>
             <button className="btn-secondary" onClick={() => setActiveModal('specs')}>

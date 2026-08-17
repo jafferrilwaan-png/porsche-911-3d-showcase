@@ -628,10 +628,10 @@ export default function Scene({
       onWheel={handleInteraction}
     >
       {/* Studio Lighting Rig */}
-      <ambientLight intensity={0.4} />
+      <ambientLight intensity={0.28} />
       <directionalLight
         position={[10, 15, 8]}
-        intensity={3.5}
+        intensity={1.8}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-far={40}
