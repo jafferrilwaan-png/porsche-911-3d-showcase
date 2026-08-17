@@ -168,13 +168,11 @@ function PorscheModel({
         // 🕶️ High-Fidelity Sunglasses Dark Window Glass (Polarized Window Tint)
         else if (matName.includes('glass_gray') || name.includes('glass')) {
           child.material = new THREE.MeshPhysicalMaterial({
-            color: new THREE.Color('#101115'),
-            transparent: true,
-            opacity: 0.88,
-            roughness: 0.04,
-            transmission: 0.18,
-            ior: 1.52,
-            reflectivity: 0.98,
+            color: new THREE.Color('#0a0b0e'),
+            transparent: false,
+            opacity: 1.0,
+            roughness: 0.02,
+            reflectivity: 1.0,
             clearcoat: 1.0,
             clearcoatRoughness: 0.02,
             envMapIntensity: 3.5,
@@ -259,10 +257,10 @@ function PorscheModel({
           }
 
           // ── 2. Body shell vertical/horizontal multidirectional exploded view ──
-          // Include outer shell panels, glass, chrome rails. Exclude grills/wheels/steering/brakes.
+          // Include outer shell panels, glass, chrome rails. Exclude grills/wheels/steering/brakes/chassis/interior.
           const isBodyShell = 
             /body|glass|trim|chrome|carbon|wipers|leds|lights/.test(name) && 
-            !/wheel|rim|steering|brake|caliper|disc|grill/.test(name)
+            !/wheel|rim|steering|brake|caliper|disc|grill|chassis|engine|frame|suspension|interior|floor|seat/.test(name)
             
           if (isBodyShell) {
             let targetX = initialPos.x
@@ -330,18 +328,18 @@ function PorscheModel({
         const name = e.object.name.toLowerCase()
         const isWheelPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
         
-        // Find click coordinate in world space to detect hot zones
-        const wp = new THREE.Vector3()
-        e.object.getWorldPosition(wp)
+        // Use raycast intersection point for highly accurate click zones!
+        const cp = e.point
+        const carShiftX = (explodedWheel || explodedBody) ? 1.35 : 0
 
         // ── A. Tapping exhaust tailpipe zone (Nitrous NOS Activation) ──
-        if (wp.z < -1.35 && wp.y < -0.3) {
+        if (cp.z < -1.4 && cp.y < -0.28) {
           setNitrousActive(prev => !prev)
           return
         }
 
         // ── B. Tapping engine cover deck (rear lid hatch opening) ──
-        if (wp.z < -1.1 && wp.y >= -0.3 && !isWheelPart) {
+        if (cp.z < -0.9 && cp.y >= -0.28 && !isWheelPart) {
           setEngineOpen(prev => !prev)
           return
         }
@@ -349,10 +347,10 @@ function PorscheModel({
         // ── C. Wheel assembly click ──
         if (isWheelPart) {
           let corner = 'fl'
-          if (wp.z > 0.15) {
-            corner = wp.x > 0 ? 'fl' : 'fr'
-          } else if (wp.z < -0.15) {
-            corner = wp.x > 0 ? 'rl' : 'rr'
+          if (cp.z > 0.1) {
+            corner = cp.x > carShiftX ? 'fl' : 'fr'
+          } else {
+            corner = cp.x > carShiftX ? 'rl' : 'rr'
           }
           setExplodedBody(false)
           setExplodedWheel(prev => prev === corner ? null : corner)
@@ -695,10 +693,10 @@ const TOURS = {
 
 // ── Camera Controller (Cinematic Intro & Auto-Rotate Idle Timers) ────────────
 const WHEEL_VIEWS = {
-  fl: { pos: [ 1.8, -0.22,  1.8],  look: [ 0.85, -0.62,  0.82] },
-  fr: { pos: [ 1.8, -0.22, -1.8],  look: [ 0.85, -0.62, -0.82] },
-  rr: { pos: [-1.8, -0.22, -1.8],  look: [-0.85, -0.62, -0.82] },
-  rl: { pos: [-1.8, -0.22,  1.8],  look: [-0.85, -0.62,  0.82] },
+  fl: { pos: [ 2.4, -0.25,  1.8],  look: [ 0.85, -0.62,  0.82] },
+  fr: { pos: [-2.4, -0.25,  1.8],  look: [-0.85, -0.62,  0.82] },
+  rl: { pos: [ 2.4, -0.25, -1.8],  look: [ 0.85, -0.62, -0.82] },
+  rr: { pos: [-2.4, -0.25, -1.8],  look: [-0.85, -0.62, -0.82] },
 }
 
 function CameraRig({ 
