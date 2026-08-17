@@ -15,22 +15,18 @@ const CAR_COLORS = {
   miami:    '#00a3b5',
 }
 
-// ── Porsche 911 Model Component with Sunglasses Glass & Interactive Exploded Wheels ───────
-function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, setCameraMode }) {
+// ── Porsche 911 Model Component with Sunglasses Glass & Interactive Exploded Configuration ───────
+function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, setCameraMode, explodedBody = false, setExplodedBody }) {
   const gltf = useGLTF('/model.glb')
   const groupRef = useRef()
   const initialPositions = useRef(new Map())
 
-  // Store initial positions of all wheel meshes once
+  // Store initial positions of ALL meshes once on load
   useEffect(() => {
     if (!gltf.scene) return
     gltf.scene.traverse((child) => {
-      if (child.isMesh) {
-        const name = child.name.toLowerCase()
-        const isPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
-        if (isPart && !initialPositions.current.has(child.uuid)) {
-          initialPositions.current.set(child.uuid, child.position.clone())
-        }
+      if (child.isMesh && !initialPositions.current.has(child.uuid)) {
+        initialPositions.current.set(child.uuid, child.position.clone())
       }
     })
   }, [gltf.scene])
@@ -202,11 +198,11 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
     gltf.scene.traverse((child) => {
       if (child.isMesh) {
         const name = child.name.toLowerCase()
-        const isPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
-        if (isPart) {
-          const initialPos = initialPositions.current.get(child.uuid)
-          if (initialPos) {
-            // Determine corner
+        const initialPos = initialPositions.current.get(child.uuid)
+        if (initialPos) {
+          // ── 1. Wheel assembly horizontal explosion ──
+          const isWheelPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
+          if (isWheelPart) {
             let corner = 'fl'
             if (name.includes('_fl')) corner = 'fl'
             else if (name.includes('_fr')) corner = 'fr'
@@ -237,6 +233,20 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
             const targetX = initialPos.x + targetOffset * dir
             child.position.x = THREE.MathUtils.lerp(child.position.x, targetX, 0.15)
           }
+
+          // ── 2. Body shell vertical lift explosion (clamshell chassis view) ──
+          // Include outer shell panels, grills, paint, glass, and lights. Exclude wheels/steering/brakes.
+          const isBodyShell = 
+            /body|glass|trim|grills|chrome|carbon|wipers|leds|lights/.test(name) && 
+            !/wheel|rim|steering|brake|caliper|disc/.test(name)
+            
+          if (isBodyShell) {
+            let targetY = initialPos.y
+            if (explodedBody) {
+              targetY = initialPos.y + 0.95 // Lift the entire outer shell up by 0.95 units
+            }
+            child.position.y = THREE.MathUtils.lerp(child.position.y, targetY, 0.15)
+          }
         }
       }
     })
@@ -250,8 +260,9 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
       onClick={(e) => {
         e.stopPropagation()
         const name = e.object.name.toLowerCase()
-        const isPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
-        if (isPart) {
+        const isWheelPart = /tire|rim|wheel|brake|caliper|disc/.test(name)
+        
+        if (isWheelPart) {
           // Classify clicked wheel's corner
           const wp = new THREE.Vector3()
           e.object.getWorldPosition(wp)
@@ -261,8 +272,19 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
           } else if (wp.z < -0.15) {
             corner = wp.x > 0 ? 'rl' : 'rr'
           }
+          // Reset other configuration states
+          setExplodedBody(false)
           setExplodedWheel(prev => prev === corner ? null : corner)
           setCameraMode('wheel')
+        } else {
+          // Body panels click
+          const isBodyShell = /body|glass|trim|grills|chrome|carbon|wipers|leds|lights/.test(name)
+          if (isBodyShell) {
+            // Reset other configuration states
+            setExplodedWheel(null)
+            setExplodedBody(prev => !prev)
+            setCameraMode('overview')
+          }
         }
       }}
     >
@@ -271,26 +293,33 @@ function PorscheModel({ color = 'gold', explodedWheel = null, setExplodedWheel, 
   )
 }
 
+
 // ── 3D Glass Showroom Pavilion with Flickering Aura Flame ────────────────────
 function GlassShowroom({ color }) {
   const ringColor = CAR_COLORS[color] || CAR_COLORS.gold
-  
+
+  // Breathtaking, hyper-realistic glass material parameters
   const glassMat = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color('#e0f2ff'),
+    color: new THREE.Color('#f0f9ff'),
     transparent: true,
-    opacity: 0.28,
-    roughness: 0.01,
-    transmission: 0.97,
+    opacity: 0.12,
+    roughness: 0.02,
+    metalness: 0.05,
+    transmission: 0.96,
     ior: 1.52,
     reflectivity: 0.98,
     clearcoat: 1.0,
+    clearcoatRoughness: 0.03,
+    thickness: 0.8,
+    depthWrite: false,
     side: THREE.DoubleSide,
   })
 
-  const pillarMat = new THREE.MeshStandardMaterial({
-    color: '#1a1b26',
-    metalness: 0.95,
-    roughness: 0.1,
+  // Sleek, highly polished chrome structural frames and pillars
+  const chromeMat = new THREE.MeshStandardMaterial({
+    color: '#e8ecfb',
+    metalness: 1.0,
+    roughness: 0.04,
   })
 
   // Flame layer refs for procedural flickering aura math in 60fps render loops
@@ -300,25 +329,19 @@ function GlassShowroom({ color }) {
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime()
-    
     if (flame1Ref.current) {
-      // Fast scale flickering and rotation
       const s = 1 + Math.sin(t * 7.5) * 0.035 + Math.cos(t * 3.2) * 0.015
       flame1Ref.current.scale.set(s, s, 1)
       flame1Ref.current.material.opacity = 0.38 + Math.sin(t * 11) * 0.06
       flame1Ref.current.rotation.z = t * 0.14
     }
-    
     if (flame2Ref.current) {
-      // Counter-rotation and layered scale offset
       const s = 1.06 + Math.cos(t * 5.8) * 0.045 + Math.sin(t * 2.1) * 0.02
       flame2Ref.current.scale.set(s, s, 1)
       flame2Ref.current.material.opacity = 0.26 + Math.cos(t * 9) * 0.05
       flame2Ref.current.rotation.z = -t * 0.18
     }
-
     if (flame3Ref.current) {
-      // Outer aura ring pulsation
       const s = 1.12 + Math.sin(t * 3.8) * 0.06
       flame3Ref.current.scale.set(s, s, 1)
       flame3Ref.current.material.opacity = 0.14 + Math.sin(t * 6) * 0.04
@@ -326,7 +349,7 @@ function GlassShowroom({ color }) {
     }
   })
 
-  // Glass Wall Panels
+  // Elegant Curved Glass Wall Panels & Polished Chrome Structural Frames
   const walls = []
   const count = 8
   const radius = 6.4
@@ -336,28 +359,54 @@ function GlassShowroom({ color }) {
     const z = Math.sin(angle) * radius
     walls.push(
       <group key={i} position={[x, 1.8, z]} rotation={[0, -angle + Math.PI / 2, 0]}>
+        {/* Main Glass Pane */}
         <mesh material={glassMat}>
           <planeGeometry args={[4.2, 5.0]} />
         </mesh>
-        <mesh position={[-2.1, 0, 0]} material={pillarMat}>
-          <boxGeometry args={[0.1, 5.2, 0.1]} />
+        {/* Sleek Chrome Columns (Double rod modern architecture) */}
+        <mesh position={[-2.1, 0, 0]} material={chromeMat}>
+          <cylinderGeometry args={[0.035, 0.035, 5.0, 16]} />
         </mesh>
-        <mesh position={[2.1, 0, 0]} material={pillarMat}>
-          <boxGeometry args={[0.1, 5.2, 0.1]} />
+        <mesh position={[2.1, 0, 0]} material={chromeMat}>
+          <cylinderGeometry args={[0.035, 0.035, 5.0, 16]} />
+        </mesh>
+        {/* Top/Bottom Horizontal Beveled Chrome Rails */}
+        <mesh position={[0, 2.5, 0]} material={chromeMat}>
+          <boxGeometry args={[4.2, 0.05, 0.08]} />
+        </mesh>
+        <mesh position={[0, -2.5, 0]} material={chromeMat}>
+          <boxGeometry args={[4.2, 0.05, 0.08]} />
         </mesh>
       </group>
     )
   }
 
+  // Radial structural roof trusses
+  const trusses = []
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2
+    trusses.push(
+      <mesh key={i} position={[Math.cos(angle) * 3.2, 4.3, Math.sin(angle) * 3.2]} rotation={[0, -angle, 0]} material={chromeMat}>
+        <boxGeometry args={[6.4, 0.04, 0.04]} />
+      </mesh>
+    )
+  }
+
   return (
     <group position={[0, -0.63, 0]}>
-      {/* Structural Glass Panels */}
+      {/* Structural Glass Walls */}
       {walls}
 
-      {/* Pavilion Glass Roof */}
-      <mesh position={[0, 4.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.2, 6.4, 32]} />
-        <meshStandardMaterial color="#1a1b26" metalness={0.9} roughness={0.15} side={THREE.DoubleSide} />
+      {/* Modern Radial Chrome Trusses */}
+      {trusses}
+
+      {/* Hyper-realistic Glass & Chrome Roof (Allows ambient sky light to shine through) */}
+      <mesh position={[0, 4.3, 0]} rotation={[Math.PI / 2, 0, 0]} material={glassMat}>
+        <ringGeometry args={[0.2, 6.3, 64]} />
+      </mesh>
+      {/* Polished Chrome Roof Outer Rim */}
+      <mesh position={[0, 4.31, 0]} rotation={[Math.PI / 2, 0, 0]} material={chromeMat}>
+        <ringGeometry args={[6.3, 6.4, 64]} />
       </mesh>
 
       {/* Ceiling LED Ring Light */}
@@ -386,12 +435,12 @@ function GlassShowroom({ color }) {
       </mesh>
 
       {/* Flame Layer 2 */}
-      <mesh ref={flame2Ref} position={[0, 0.015, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[2.8, 3.5, 64]} />
+      <mesh ref={flame2Ref} position={[0, 0.014, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[2.8, 3.4, 64]} />
         <meshBasicMaterial 
           color={ringColor} 
           transparent={true} 
-          opacity={0.25} 
+          opacity={0.22} 
           blending={THREE.AdditiveBlending} 
           side={THREE.DoubleSide} 
           depthWrite={false}
@@ -399,12 +448,12 @@ function GlassShowroom({ color }) {
       </mesh>
 
       {/* Flame Layer 3 */}
-      <mesh ref={flame3Ref} position={[0, 0.018, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[2.8, 3.8, 64]} />
+      <mesh ref={flame3Ref} position={[0, 0.016, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[2.8, 3.6, 64]} />
         <meshBasicMaterial 
           color={ringColor} 
           transparent={true} 
-          opacity={0.15} 
+          opacity={0.12} 
           blending={THREE.AdditiveBlending} 
           side={THREE.DoubleSide} 
           depthWrite={false}
@@ -524,8 +573,7 @@ const WHEEL_VIEWS = {
   rr: { pos: [-2.6, 0.5, -2.4],  look: [-0.9, -0.15, -0.9] },
   rl: { pos: [-2.6, 0.5,  2.4],  look: [-0.9, -0.15,  0.9] },
 }
-
-function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteraction, explodedWheel = null }) {
+function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteraction, explodedWheel = null, explodedBody = false }) {
   const { camera, controls } = useThree()
   
   // Guided tour and transition states
@@ -566,7 +614,21 @@ function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteract
   }, [cameraMode])
 
   useFrame((_, delta) => {
-    // 0. Exploded Wheel View Camera Focus Lock
+    // 0. Exploded Body View Camera Lock (Elevated angle to look down into chassis)
+    if (explodedBody) {
+      const targetP = new THREE.Vector3(3.2, 2.5, 3.2)
+      const targetL = new THREE.Vector3(0, 0.2, 0.2)
+      camera.position.lerp(targetP, delta * 3.5)
+      if (controls) {
+        controls.target.lerp(targetL, delta * 3.5)
+        controls.update()
+      } else {
+        camera.lookAt(targetL)
+      }
+      return
+    }
+
+    // 0.5. Exploded Wheel View Camera Focus Lock
     if (explodedWheel && WHEEL_VIEWS[explodedWheel]) {
       const view = WHEEL_VIEWS[explodedWheel]
       const targetP = new THREE.Vector3(...view.pos)
@@ -702,14 +764,15 @@ function PostFX() {
     </EffectComposer>
   )
 }
-
 // ── MAIN SCENE COMPONENT ─────────────────────────────────────────────────────
 export default function Scene({ 
   color = 'gold', 
   cameraMode = 'overview',
   setCameraMode,
   explodedWheel = null,
-  setExplodedWheel
+  setExplodedWheel,
+  explodedBody = false,
+  setExplodedBody
 }) {
   const [isAutoRotating, setIsAutoRotating] = useState(true)
   const lastInteraction = useRef(Date.now())
@@ -781,6 +844,8 @@ export default function Scene({
             explodedWheel={explodedWheel}
             setExplodedWheel={setExplodedWheel}
             setCameraMode={setCameraMode}
+            explodedBody={explodedBody}
+            setExplodedBody={setExplodedBody}
           />
         </Float>
         <GroundReflection color={CAR_COLORS[color] || CAR_COLORS.gold} />
@@ -796,6 +861,7 @@ export default function Scene({
         setIsAutoRotating={setIsAutoRotating}
         lastInteraction={lastInteraction}
         explodedWheel={explodedWheel}
+        explodedBody={explodedBody}
       />
       <OrbitControls
         enablePan={cameraMode === 'overview'}

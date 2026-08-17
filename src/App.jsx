@@ -137,6 +137,7 @@ export default function App() {
   const [carColor, setCarColor] = useState('gold')
   const [cameraMode, setCameraMode] = useState('overview')
   const [explodedWheel, setExplodedWheel] = useState(null)
+  const [explodedBody, setExplodedBody] = useState(false)
   const [hoveredColor, setHoveredColor] = useState(null)
   const [activeModal, setActiveModal] = useState(null) // 'discover' | 'specs'
   
@@ -187,6 +188,8 @@ export default function App() {
           setCameraMode={setCameraMode}
           explodedWheel={explodedWheel}
           setExplodedWheel={setExplodedWheel}
+          explodedBody={explodedBody}
+          setExplodedBody={setExplodedBody}
         />
       </div>
 
@@ -200,7 +203,7 @@ export default function App() {
 
         {/* ── NAVBAR WITH PORSCHE HORSE EMBLEM & CAMERA PRESETS ── */}
         <nav className="navbar animate-up">
-          <div className="navbar-logo" onClick={() => { setCameraMode('overview'); setExplodedWheel(null); }}>
+          <div className="navbar-logo" onClick={() => { setCameraMode('overview'); setExplodedWheel(null); setExplodedBody(false); }}>
             <PorscheHorseLogo />
             <span className="navbar-brand" style={{ marginLeft: '10px' }}>Porsche <span>911</span></span>
           </div>
@@ -209,25 +212,25 @@ export default function App() {
           <div className="navbar-nav prism-nav">
             <button 
               className={`nav-btn ${cameraMode === 'overview' ? 'active' : ''}`} 
-              onClick={() => { setCameraMode('overview'); setExplodedWheel(null); }}
+              onClick={() => { setCameraMode('overview'); setExplodedWheel(null); setExplodedBody(false); }}
             >
               Overview
             </button>
             <button 
               className={`nav-btn ${cameraMode === 'interior' ? 'active' : ''}`} 
-              onClick={() => { setCameraMode('interior'); setExplodedWheel(null); }}
+              onClick={() => { setCameraMode('interior'); setExplodedWheel(null); setExplodedBody(false); }}
             >
               Interior
             </button>
             <button 
               className={`nav-btn ${cameraMode === 'wheel' ? 'active' : ''}`} 
-              onClick={() => setCameraMode('wheel')}
+              onClick={() => { setCameraMode('wheel'); setExplodedBody(false); }}
             >
               Wheel & Tire
             </button>
             <button 
               className={`nav-btn ${cameraMode === 'rear' ? 'active' : ''}`} 
-              onClick={() => { setCameraMode('rear'); setExplodedWheel(null); }}
+              onClick={() => { setCameraMode('rear'); setExplodedWheel(null); setExplodedBody(false); }}
             >
               Rear
             </button>
@@ -243,7 +246,7 @@ export default function App() {
         </nav>
 
         {/* ── HERO SECTION ── */}
-        <div className={`hero-section animate-left${explodedWheel ? ' hide-panel' : ''}`} style={{ pointerEvents: 'all' }}>
+        <div className={`hero-section animate-left${(explodedWheel || explodedBody) ? ' hide-panel' : ''}`} style={{ pointerEvents: 'all' }}>
           <p className="hero-eyebrow">Carrera S · 2024 Edition</p>
           <h1 className="hero-title">
             The Art of<br />
@@ -300,8 +303,46 @@ export default function App() {
           </p>
         </div>
 
+        {/* ── CABIN & CHASSIS SPECS CARD (Apple VisionOS Glassmorphism UI) ── */}
+        <div className={`tire-card glass-card ${explodedBody ? 'active' : ''}`} style={{ pointerEvents: 'all' }}>
+          <div className="tire-card-glow" />
+          <div className="tire-card-header">
+            <span className="tire-card-title">Chassis & Cockpit</span>
+            <button className="tire-card-close" onClick={() => setExplodedBody(false)}>✕</button>
+          </div>
+          <div className="tire-spec-grid">
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Cabin Shell</span>
+              <span className="tire-spec-val">Laminated Safety Glass</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Trim</span>
+              <span className="tire-spec-val">Carbon Fiber Structural</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Seats</span>
+              <span className="tire-spec-val">Leather Bucket Seats</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Spoiler</span>
+              <span className="tire-spec-val">Adaptive Clamshell Wing</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Chassis Core</span>
+              <span className="tire-spec-val">Integrated Steel Cage</span>
+            </div>
+            <div className="tire-spec-box">
+              <span className="tire-spec-lbl">Stage Rim</span>
+              <span className="tire-spec-val">Synced LED Color Ring</span>
+            </div>
+          </div>
+          <p className="tire-desc">
+            The clamshell view exposes the detailed <strong style={{ color: 'var(--accent-dynamic)' }}>GT3 Sport Package</strong> cabin, including carbon trim layers, leather steering accents, and the rear-mounted boxer engine chassis.
+          </p>
+        </div>
+
         {/* ── SPECS PANEL (RIGHT SIDE) ── */}
-        <div className={`specs-panel glass-card animate-right${explodedWheel ? ' hide-panel-right' : ''}`} style={{ pointerEvents: 'all' }}>
+        <div className={`specs-panel glass-card animate-right${(explodedWheel || explodedBody) ? ' hide-panel-right' : ''}`} style={{ pointerEvents: 'all' }}>
           <p className="specs-title">Technical Specs</p>
           {SPECS.map(spec => (
             <div key={spec.label} className="spec-item">
