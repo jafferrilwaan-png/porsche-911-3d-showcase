@@ -405,25 +405,33 @@ function Particles({ count = 120 }) {
 }
 
 // ── Guided Tour Coordinates Timeline ─────────────────────────────────────────
+// NOTE: The 3D model sits at world Y=-0.62, scale=1.42.
+// Interior: camera is INSIDE the cabin. Positive Z is toward front of car.
+// look target is what the camera gazes AT from its pos.
 const TOURS = {
   overview: [
-    { pos: [5.5, 1.8, 7.5], look: [0, 0, 0] }
+    { pos: [5.5, 1.8, 7.5],   look: [0, 0.2, 0],   orbit: true  }
   ],
   interior: [
-    { pos: [0.25, 0.45, 0.25], look: [0, 0.35, 1.5] }, // Steering Wheel & Dashboard
-    { pos: [0.0, 0.32, 0.55],  look: [0, -0.1, 1.2] },  // Gear Console & Shift
-    { pos: [-0.25, 0.45, 0.25], look: [0, 0.3, 1.5] }   // Passenger View & Seats
+    // Driver seat — looking at steering wheel & instrument cluster
+    { pos: [-0.35, 0.28, 0.5], look: [-0.3, 0.22, -0.6], orbit: false },
+    // Center console — looking down at gear shifter & infotainment
+    { pos: [0.0,  0.18, 0.3],  look: [0.0,  0.0,  -0.2], orbit: false },
+    // Passenger side — looking across cabin at door & seat
+    { pos: [0.45, 0.28, 0.4],  look: [0.5,  0.18,  -0.8], orbit: false },
+    // Low dramatic angle — rear seats / footwell pan up
+    { pos: [0.0,  -0.05, 1.0], look: [0.0,  0.25, -0.5], orbit: false }
   ],
   wheel: [
-    { pos: [2.4, 0.05, 1.8],    look: [0.9, -0.2, 0.8] },   // Front-Left Wheel
-    { pos: [2.4, 0.05, -1.8],   look: [0.9, -0.2, -0.8] },  // Front-Right Wheel
-    { pos: [-2.4, 0.05, -1.8],  look: [-0.9, -0.2, -0.8] }, // Rear-Right Wheel
-    { pos: [-2.4, 0.05, 1.8],   look: [-0.9, -0.2, 0.8] }   // Rear-Left Wheel
+    { pos: [1.6,  0.08, 1.4],  look: [0.85, -0.18,  0.82], orbit: false }, // FL
+    { pos: [1.6,  0.08, -1.4], look: [0.85, -0.18, -0.82], orbit: false }, // FR
+    { pos: [-1.6, 0.08, -1.4], look: [-0.85,-0.18, -0.82], orbit: false }, // RR
+    { pos: [-1.6, 0.08,  1.4], look: [-0.85,-0.18,  0.82], orbit: false }  // RL
   ],
   rear: [
-    { pos: [0, 0.6, -4.8],      look: [0, 0.1, 0] },     // Rear Badge & Lightbar
-    { pos: [0, 1.4, -3.8],      look: [0, 0.5, 0] },     // Spoiler & Engine Grille
-    { pos: [0.9, 0.8, -4.2],    look: [0, 0.5, -0.5] }   // Dual Exhaust Outlets
+    { pos: [0,    0.5,  -3.8], look: [0, 0.15,  0],    orbit: false }, // Rear emblem & lights
+    { pos: [0,    1.2,  -3.2], look: [0, 0.55,  0],    orbit: false }, // Spoiler & grille
+    { pos: [0.7,  0.6,  -3.5], look: [0, 0.4,  -0.3], orbit: false }  // Exhaust pipes
   ]
 }
 
@@ -518,28 +526,42 @@ function CameraRig({ cameraMode, isAutoRotating, setIsAutoRotating, lastInteract
       const basePos = new THREE.Vector3(...currentStep.pos)
       const baseLook = new THREE.Vector3(...currentStep.look)
 
-      // Apply a subtle orbital 360-degree rotation offset around the look target
-      const offsetPos = new THREE.Vector3().copy(basePos)
-      const time = Date.now() * 0.00025
-      const r = basePos.distanceTo(baseLook)
-      const angle = Math.atan2(basePos.z - baseLook.z, basePos.x - baseLook.x) + time
-      
-      offsetPos.x = baseLook.x + Math.cos(angle) * r
-      offsetPos.z = baseLook.z + Math.sin(angle) * r
-
-      camera.position.lerp(offsetPos, delta * 2.5)
-
-      if (controls) {
-        controls.target.lerp(baseLook, delta * 2.5)
-        controls.update()
+      if (currentStep.orbit) {
+        // ── Overview only: slow 360° orbital sweep around car ──
+        const time = Date.now() * 0.00018
+        const r = basePos.distanceTo(new THREE.Vector3(0, 0.2, 0))
+        const startAngle = Math.atan2(basePos.z, basePos.x)
+        const angle = startAngle + time
+        const orbitPos = new THREE.Vector3(
+          Math.cos(angle) * r,
+          basePos.y,
+          Math.sin(angle) * r
+        )
+        camera.position.lerp(orbitPos, delta * 1.2)
+        if (controls) {
+          controls.target.lerp(baseLook, delta * 1.2)
+          controls.update()
+        } else {
+          camera.lookAt(baseLook)
+        }
       } else {
-        camera.lookAt(baseLook)
+        // ── Interior / Wheel / Rear: cinematic slow drift to each keyframe ──
+        // No orbit — just smoothly lerp to the exact keyframe position
+        camera.position.lerp(basePos, delta * 1.0)
+        if (controls) {
+          controls.target.lerp(baseLook, delta * 1.0)
+          controls.update()
+        } else {
+          camera.lookAt(baseLook)
+        }
       }
 
       // Step transition timer
       if (tourList.length > 1) {
         timeInStep.current += delta
-        if (timeInStep.current >= 4.5) { // Switch views every 4.5 seconds
+        // Overview steps hold longer; close-ups cycle every 3.5 s
+        const holdTime = currentStep.orbit ? 8.0 : 3.5
+        if (timeInStep.current >= holdTime) {
           timeInStep.current = 0
           setStepIndex((prev) => (prev + 1) % tourList.length)
         }
