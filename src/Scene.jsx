@@ -405,33 +405,33 @@ function Particles({ count = 120 }) {
 }
 
 // ── Guided Tour Coordinates Timeline ─────────────────────────────────────────
-// NOTE: The 3D model sits at world Y=-0.62, scale=1.42.
-// Interior: camera is INSIDE the cabin. Positive Z is toward front of car.
-// look target is what the camera gazes AT from its pos.
+// Car model: world Y = -0.62, scale 1.42. Roof ~Y 0.85.
+// Interior shots approach from ABOVE and OUTSIDE to avoid clipping the chassis.
 const TOURS = {
   overview: [
-    { pos: [5.5, 1.8, 7.5],   look: [0, 0.2, 0],   orbit: true  }
+    { pos: [5.5, 1.8, 7.5], look: [0, 0.2, 0], orbit: true }
   ],
   interior: [
-    // Driver seat — looking at steering wheel & instrument cluster
-    { pos: [-0.35, 0.28, 0.5], look: [-0.3, 0.22, -0.6], orbit: false },
-    // Center console — looking down at gear shifter & infotainment
-    { pos: [0.0,  0.18, 0.3],  look: [0.0,  0.0,  -0.2], orbit: false },
-    // Passenger side — looking across cabin at door & seat
-    { pos: [0.45, 0.28, 0.4],  look: [0.5,  0.18,  -0.8], orbit: false },
-    // Low dramatic angle — rear seats / footwell pan up
-    { pos: [0.0,  -0.05, 1.0], look: [0.0,  0.25, -0.5], orbit: false }
+    // 1. Bird-eye top-down: above roof looking straight into cabin
+    { pos: [0.0,  3.2,  0.6],  look: [0, 0.2, 0],    orbit: false },
+    // 2. Windshield hero: outside front glass angled down at steering wheel
+    { pos: [0.0,  1.4,  2.8],  look: [0, 0.3, 0.2],  orbit: false },
+    // 3. Driver window: outside left, looking across at gauge cluster
+    { pos: [2.6,  1.0,  0.5],  look: [0, 0.25, 0.1], orbit: false },
+    // 4. Rear quarter: outside rear-right elevated, looking forward into cabin
+    { pos: [1.8,  1.6, -2.2],  look: [0, 0.5, 0.4],  orbit: false },
   ],
   wheel: [
-    { pos: [1.6,  0.08, 1.4],  look: [0.85, -0.18,  0.82], orbit: false }, // FL
-    { pos: [1.6,  0.08, -1.4], look: [0.85, -0.18, -0.82], orbit: false }, // FR
-    { pos: [-1.6, 0.08, -1.4], look: [-0.85,-0.18, -0.82], orbit: false }, // RR
-    { pos: [-1.6, 0.08,  1.4], look: [-0.85,-0.18,  0.82], orbit: false }  // RL
+    // Camera circles each wheel from outside the car body
+    { pos: [ 2.6, 0.5,  2.4],  look: [ 0.9, -0.15,  0.9],  orbit: false }, // Front-Left
+    { pos: [ 2.6, 0.5, -2.4],  look: [ 0.9, -0.15, -0.9],  orbit: false }, // Front-Right
+    { pos: [-2.6, 0.5, -2.4],  look: [-0.9, -0.15, -0.9],  orbit: false }, // Rear-Right
+    { pos: [-2.6, 0.5,  2.4],  look: [-0.9, -0.15,  0.9],  orbit: false }, // Rear-Left
   ],
   rear: [
-    { pos: [0,    0.5,  -3.8], look: [0, 0.15,  0],    orbit: false }, // Rear emblem & lights
-    { pos: [0,    1.2,  -3.2], look: [0, 0.55,  0],    orbit: false }, // Spoiler & grille
-    { pos: [0.7,  0.6,  -3.5], look: [0, 0.4,  -0.3], orbit: false }  // Exhaust pipes
+    { pos: [0.0,  0.7,  -4.5], look: [0, 0.2,  0],    orbit: false }, // Emblem & light bar
+    { pos: [0.0,  1.6,  -3.8], look: [0, 0.75, 0],    orbit: false }, // Spoiler & grille
+    { pos: [1.0,  0.6,  -4.0], look: [0, 0.3, -0.3],  orbit: false }, // Exhaust detail
   ]
 }
 
@@ -685,17 +685,16 @@ export default function Scene({
         lastInteraction={lastInteraction}
       />
       <OrbitControls
-        enablePan={true}
+        enablePan={cameraMode === 'overview'}
         enableZoom={true}
-        minPolarAngle={Math.PI / 8}
-        maxPolarAngle={Math.PI / 2.05}
-        minDistance={2.8}
-        maxDistance={16}
-        autoRotate={isAutoRotating}
-        autoRotateSpeed={1.0}
+        minPolarAngle={Math.PI / 10}
+        maxPolarAngle={Math.PI / 1.8}
+        minDistance={cameraMode === 'overview' ? 3.0 : 0.5}
+        maxDistance={cameraMode === 'overview' ? 18 : 8}
+        autoRotate={false}
         rotateSpeed={0.8}
         zoomSpeed={1.0}
-        dampingFactor={0.05}
+        dampingFactor={0.06}
         makeDefault
         onStart={handleInteraction}
       />
