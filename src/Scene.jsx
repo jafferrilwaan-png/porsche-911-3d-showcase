@@ -966,7 +966,7 @@ export default function Scene({
         shadow-camera-bottom={-10}
       />
       <pointLight position={[-8, 6, -6]} intensity={1.8} color="#3388ff" />
-      <pointLight position={[8, 3, 6]}   intensity={1.5} color="#e2c168" />
+      <pointLight position={[8, 3, 6]}   intensity={1.5} color="#ffffff" />
       <spotLight
         position={[0, 9, 0]}
         angle={0.45}
@@ -978,7 +978,7 @@ export default function Scene({
 
       {/* Realistic Glass Pavilion Ground Projection (CORS-safe, 100% grounded 8K view) */}
       <Environment 
-        preset="lobby" 
+        preset="warehouse" 
         background 
         blur={0} 
         ground={{
