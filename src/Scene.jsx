@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, Suspense, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment, useGLTF, ContactShadows, Float, MeshReflectorMaterial } from '@react-three/drei'
-import { EffectComposer, Bloom, ChromaticAberration, ToneMapping } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, ChromaticAberration, ToneMapping, HueSaturation } from '@react-three/postprocessing'
 import { BlendFunction, ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
 
@@ -912,6 +912,10 @@ function PostFX() {
         minLuminance={0.01}
         averageLuminance={0.2}
       />
+      <HueSaturation
+        hue={0.0}
+        saturation={-0.15}
+      />
     </EffectComposer>
   )
 }
@@ -953,7 +957,7 @@ export default function Scene({
       onWheel={handleInteraction}
     >
       {/* Studio Lighting Rig */}
-      <ambientLight intensity={0.28} />
+      <ambientLight intensity={0.35} color="#e6f0ff" />
       <directionalLight
         position={[10, 15, 8]}
         intensity={1.8}
@@ -978,7 +982,7 @@ export default function Scene({
 
       {/* Realistic Glass Pavilion Ground Projection (CORS-safe, 100% grounded 8K view) */}
       <Environment 
-        preset="warehouse" 
+        preset="lobby" 
         background 
         blur={0} 
         ground={{
